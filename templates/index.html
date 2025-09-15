@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Real-Time Detection Page{% endblock %}
+
+{% block content %}
+<h1>Welcome, {{ username }}!</h1>
+<div class="video-container"> 
+<div class="video-wrapper"  >
+    <img id="placeholder" src="{{ url_for('static', filename='placeholder.gif') }}" alt="Placeholder" style="display: block;">
+    <img id="video-feed" src="{{ url_for('video_feed') }}" alt="Video feed" style="display: none;">
+</div>
+</div>
+
+<div class="loading" id="loading-message">Loading video stream...</div>
+
+<a href="{{ url_for('upload') }}">Upload a New Video</a>
+<form action="{{ url_for('terminate_video_feed') }}" method="POST">
+    <button type="submit">Terminate Video Feed</button>
+</form>
+
+<form action="{{ url_for('toggle_counting') }}" method="POST">
+    <button type="submit">Toggle Person Counting</button>
+</form>
+
+<form action="{{ url_for('logout') }}" method="POST">
+    <button type="submit">logout</button>
+</form>
+
+<script>
+    const videoFeed = document.getElementById('video-feed');
+    const placeholder = document.getElementById('placeholder');
+    const loadingMessage = document.getElementById('loading-message');
+
+    videoFeed.onloadstart = () => {
+        loadingMessage.style.display = 'block';
+        videoFeed.style.display = 'none';
+        placeholder.style.display = 'block';
+    };
+
+    videoFeed.onload = () => {
+        loadingMessage.style.display = 'none';
+        videoFeed.style.display = 'block';
+        placeholder.style.display = 'none';
+    };
+
+    videoFeed.onerror = () => {
+        loadingMessage.textContent = 'Error loading video stream.';
+    };
+</script>
+{% endblock %}

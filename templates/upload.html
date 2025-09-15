@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Upload Video</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to right, #141e30, #243b55);
+      margin: 0; padding: 0; color: #e2e8f0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 80px auto;
+      padding: 40px;
+      background: rgba(0,0,0,0.4);
+      border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.6);
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 20px;
+      font-size: 28px;
+    }
+    .form-group {
+      margin-bottom: 20px;
+      text-align: left;
+    }
+    label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 10px;
+    }
+    input[type="file"] {
+      width: 100%;
+      padding: 12px;
+      background: #2d3748;
+      border: 1px solid #4a5568;
+      color: #f7fafc;
+      border-radius: 5px;
+    }
+    button {
+      padding: 12px 25px;
+      background: #e53e3e;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #c53030;
+    }
+    .info-text {
+      font-size: 0.9rem;
+      margin-bottom: 30px;
+      color: #cbd5e0;
+    }
+    .back-link {
+      color: #63b3ed;
+      text-decoration: none;
+      display: inline-block;
+      margin-top: 20px;
+    }
+    .back-link:hover {
+      color: #4299e1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Upload a CCTV Video</h1>
+    <p class="info-text">Only <strong>MP4</strong> files allowed. Once uploaded, detection will begin automatically.</p>
+    <form action="{{ url_for('upload') }}" method="POST" enctype="multipart/form-data">
+      <div class="form-group">
+        <label for="file">Select video file</label>
+        <input type="file" name="file" id="file" required>
+      </div>
+      <button type="submit">Upload Video</button>
+    </form>
+    <a href="{{ url_for('index') }}" class="back-link">← Back to Home</a>
+  </div>
+</body>
+</html>

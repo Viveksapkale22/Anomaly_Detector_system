@@ -1,0 +1,673 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up / Login</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+  
+    <style>
+
+    .parallax {
+        min-height: 80vh;
+        background-attachment: fixed;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-size: cover;
+        width: 100%;
+        /*height: 30%;
+        z-index: -1;*/
+    }
+    
+
+    .card {
+        cursor: pointer; /* Makes the card appear clickable */
+        transition: transform 0.2s ease; /* Smooth hover effect */
+      }
+    .card:hover {
+        transform: scale(1.05); /* Slight zoom on hover */ 
+    }
+
+
+
+    section {
+        padding: 20px;
+        text-align: center;
+    }
+
+    footer {
+        font-family: Corbel;
+        background-color: #333;
+        color: #fff;
+        padding: 10px 0;
+        text-align: center;
+        position: relative;
+        bottom: 0;
+        width: 100%;
+    }
+
+    .end {
+        background-color: black;
+        border: 2px solid white;
+        padding: 10px 10px;
+    }
+
+    .end h1 {
+
+        color: white;
+        font-family: Times New Roman;
+        font-size: 20px;
+        text-align: center;
+    }
+
+    .end table {
+
+        width: 100%;
+        border: 2px solid black;
+        color: white;
+        text-align: center;
+    }
+
+
+    .scrolling-wrapper {
+
+        animation: scroll 5s linear infinite;
+        display: inline-flex;
+        white-space: nowrap;
+    }
+
+    @keyframes scroll {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+
+    .scroll-container {
+        overflow: hidden;
+        width: 100%;
+    }
+
+    .card-group {
+
+        display: inline-flex;
+        gap: 8rem;
+    }
+
+    /* Pause animation on hover */
+    .scrolling-wrapper:hover {
+
+        animation-play-state: paused;
+    }
+
+    /* Mobile devices - disable animation */
+    @media (max-width: 768px) {
+      .scrolling-wrapper {
+        animation: none;
+        white-space: normal;
+        overflow: visible;
+      }
+    }
+
+      /* Preserve existing classes while adding enhancements */
+    .btn-outline-primary {
+        background: linear-gradient(135deg, rgba(58, 123, 213, 0.1) 0%, rgba(0, 210, 255, 0.1) 100%);
+        color: #3a7bd5;
+        border-color: #3a7bd5;
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .btn-outline-secondary {
+        background: linear-gradient(135deg, rgba(142, 45, 226, 0.1) 0%, rgba(74, 0, 224, 0.1) 100%);
+        color: #8E2DE2;
+        border-color: #8E2DE2;
+        padding: 8px 20px;
+        border-radius: 30px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    /* Hover effects */
+    .hover-scale {
+        transition: all 0.3s ease;
+    }
+    
+    .btn-outline-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(58, 123, 213, 0.2) !important;
+        background: linear-gradient(135deg, rgba(58, 123, 213, 0.2) 0%, rgba(0, 210, 255, 0.2) 100%);
+    }
+    
+    .btn-outline-secondary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(142, 45, 226, 0.2) !important;
+        background: linear-gradient(135deg, rgba(142, 45, 226, 0.2) 0%, rgba(74, 0, 224, 0.2) 100%);
+    }
+    
+    /* Active state */
+    .btn-outline-primary:active, 
+    .btn-outline-secondary:active {
+        transform: translateY(0);
+    }
+    
+    /* Ripple effect */
+    .btn-outline-primary:after, 
+    .btn-outline-secondary:after {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 5px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.5);
+        opacity: 0;
+        border-radius: 100%;
+        transform: scale(1, 1) translate(-50%);
+        transform-origin: 50% 50%;
+    }
+    
+    .btn-outline-primary:active:after, 
+    .btn-outline-secondary:active:after {
+        animation: ripple 0.6s ease-out;
+    }
+    
+    @keyframes ripple {
+        0% {
+            transform: scale(0, 0);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(20, 20);
+            opacity: 0;
+        }
+    }
+
+    .fancy-heading {
+        font-size: 3rem;
+        font-weight: 700;
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        animation: fadeInDown 1s ease-in-out;
+    }
+
+    @keyframes fadeInDown {
+
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Make sure each card clips overflow */
+    .scrolling-wrapper .card {
+        overflow: hidden;
+    }
+    
+    /* Wrap and clamp text inside the card-body */
+    .scrolling-wrapper .card-text {
+        white-space: normal;        /* allow normal wrapping */
+        word-break: break-word;     /* break long words */
+        display: -webkit-box;       /* enable line clamping */
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 3;      /* limit to 3 lines */
+        overflow: hidden;           /* hide any extra text */
+        text-overflow: ellipsis;    /* add “…” if text gets cut */
+    }
+    body {
+        background: 
+        radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%),
+        linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);
+    }
+
+  </style>
+</head>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          {% for message in messages %}
+            <p>{{ message }}</p>
+          {% endfor %}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <!-- <div class="parallax"></div>  -->
+
+    <div class="parallax" style="background-image: url('https://images.unsplash.com/photo-1563986768609-322da13575f3?ixlib=rb-1.2.1&auto=format&fit=crop&w=1350&q=80'); margin: 0; padding: 0;">
+      <div class="text-center text-white bg-dark bg-opacity-50 p-5 rounded-3" style="height: 80vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+          <h1 class="display-3 fw-bold mb-4">Advanced Surveillance Solutions</h1>
+          <p class="lead mb-4">24/7 Monitoring • AI-Powered Analytics • Real-Time Alerts</p>
+          <div class="d-flex gap-3 justify-content-center">
+              <button class="btn btn-primary btn-lg px-4" data-bs-toggle="modal" data-bs-target="#signupModal">
+                  Get Started
+              </button>
+              <button class="btn btn-outline-light btn-lg px-4" data-bs-toggle="modal" data-bs-target="#loginModal">
+                  Live Demo
+              </button>
+          </div>
+      </div>
+    </div>   
+
+    <div class="text-dark py-3 text-center rounded-top-4 " style="margin-top: 0;     background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%),radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%), linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);">
+      <div class="container rounded-bottom-3">
+        <h1 class="display-5 fw-bold text-primary text-shadow-sm" style="letter-spacing: 1px; font-family: 'Segoe UI', sans-serif;">
+            Welcome to Our CCTV Surveillance System
+        </h1>
+        <p class="lead text-secondary" style="font-style: italic; font-family: 'Segoe UI', sans-serif;">
+            Explore our powerful detection systems and innovative features.
+        </p>
+        
+      </div>
+    </div>
+
+    <nav class="navbar navbar-expand-lg navbar-light border-top shadow-lg borde-bottom-opacity-10 border-0.2 border-dark rounded-bottom-4"   style="background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%), radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%),linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);"> 
+        <div class="container-fluid">
+            <a class="navbar-brand text-black" href="#"> <img src="{{ url_for('static', filename='img2.avif') }}" alt="AlertVision Logo" height="30" class="d-inline-block align-top me-2" style="border-radius: 8px;">AlertVision</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                    <li class="nav-item">
+                        <a class="nav-link active text-black" aria-current="page" href="#">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link " href="#about">About</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#DETECT">Detection modules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#contact">Contact</a>
+                    </li>
+                </ul>
+                <button class="btn btn-outline-primary me-2 hover-scale shadow-sm" data-bs-toggle="modal" data-bs-target="#signupModal">
+                    <i class="fa fa-user-plus me-2"></i>Sign Up
+                </button>
+                <button class="btn btn-outline-secondary hover-scale shadow-sm" data-bs-toggle="modal" data-bs-target="#loginModal">
+                    <i class="fa fa-sign-in me-2"></i>Login
+                </button>
+            </div>
+        </div>
+    </nav>
+
+ 
+    <div id="DETECT">
+      <div class="container mt-5" style="min-height: 600px;" >
+        <h1 class="text-center mb-4 fancy-heading">Detection Systems</h1>
+          <div class="scroll-container">
+              <div class="scrolling-wrapper">
+                  <div class="card-group">
+                      {% for _ in range(1) %}
+                          <!-- Normal Detection System (First Card) - Add special shadow -->
+                          <div class="col" style="min-width: 300px;">
+                              {% if 'username' in session %}
+                              <a href="{{ url_for('normal_detection') }}" class="text-decoration-none text-dark">
+                              {% else %}
+                              <a href="{{ url_for('index') }}" class="text-decoration-none text-dark" 
+                              onclick="alert('You need to log in first!')">
+                              {% endif %}
+                              <div class="card h-100  border-light shadow-lg" style="box-shadow: 0 0 15px rgba(13,110,253,0.5);"> <!-- Changed to shadow-lg -->
+                                  <img height="90%"src="{{ url_for('static', filename='img1.png') }}" class="card-img-top" alt="Normal Detection">
+                                  <div class="card-body">
+                                    <h5 class="card-title fw-semibold text-success" style="font-size: 1.3rem;">
+                                        <i class="fa fa-user-check me-2"></i>Normal Detection System
+                                    </h5>
+                                    <p class="card-text" style="font-size: 1.05rem; color: #555; line-height: 1.6;">
+                                        Coming Soon: Our advanced AI will detect unusual behavior in real-time, ensuring a safe and disciplined environment.
+                                    </p>
+                                  </div>
+                              </div>
+                              </a>
+                          </div>
+    
+                          <!-- Authorized Area Detection -->
+                          <div class="col" style="min-width: 300px;">
+                              {% if 'username' in session %}
+                              <a href="{{ url_for('auth_area_detection') }}" class="text-decoration-none text-dark">
+                              {% else %}
+                              <a href="{{ url_for('index') }}" class="text-decoration-none text-dark" 
+                              onclick="alert('You need to log in first!')">
+                              {% endif %}
+                              <div class="card h-100 border-light shadow-lg" style="box-shadow: 0 0 15px rgba(13,110,253,0.5);">
+                                <img src="{{ url_for('static', filename='img3.webp') }}" class="card-img-top" alt="Authorized Area Detection">
+                                <div class="card-body">
+                                    <h5 class="card-title fw-semibold text-primary" style="font-size: 1.3rem;">
+                                        <i class="fa fa-lock me-2"></i>Authorized Area Detection
+                                    </h5>
+                                    <p class="card-text" style="font-size: 1.05rem; color: #555; line-height: 1.6;">
+                                        Our system actively monitors sensitive zones, ensuring that only verified personnel can access secured areas. 
+                                        Maintain safety with intelligent real-time alerts and advanced access control.
+                                    </p>
+                                </div>
+                              </div>
+                              </a> 
+                          </div>
+    
+                          <!-- Event Detection System (Last Card) - Add special shadow -->
+                          <div class="col" style="min-width: 300px;">
+                              {% if 'username' in session %}
+                              <a href="{{ url_for('auth_area_detection') }}" class="text-decoration-none text-dark">
+                              {% else %}
+                              <a href="{{ url_for('index') }}" class="text-decoration-none text-dark" 
+                              onclick="alert('You need to log in first!')">
+                              {% endif %}
+                              <div class="card h-100 border-light shadow-lg" style="box-shadow: 0 0 15px rgba(13,110,253,0.5);"> <!-- Changed to shadow-lg -->
+                                  <img src="{{ url_for('static', filename='img2.webp') }}" class="card-img-top" alt="Event Detection">
+                                  <div class="card-body">
+                                    <h5 class="card-title fw-semibold text-warning" style="font-size: 1.3rem;">
+                                        <i class="fa fa-bolt me-2"></i>Event Detection System
+                                    </h5>
+                                    <p class="card-text" style="font-size: 1.05rem; color: #555; line-height: 1.6;">
+                                        Coming Soon: Stay ahead of critical situations with our intelligent event detection, identifying threats before they escalate.
+                                    </p>
+                                    
+                                  </div>
+                              </div>
+                              </a>
+                          </div>
+                      {% endfor %}
+                  </div>
+              </div>
+          </div>
+      </div>
+  </div>
+
+
+
+
+
+
+
+
+
+
+    <!-- About Section -->
+    <!-- <div class="section" id="about">
+        <div class="container">
+            <h2 class="text-center">About Us</h2>
+            <p class="text-center">We are dedicated to providing the best user experience through our innovative platform. Our mission is to connect people and help them achieve their goals.</p>
+        </div>
+    </div> -->
+
+ 
+    <div class="section  bg-opacity-25 shadow-lg rounded-3 border border-secondary border-opacity-10 text-dark mt-5" style=" background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%),radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%), linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);" id="about">        
+        <div class="container py-5">
+            <div class="row align-items-center">
+                <!-- About Us Text -->
+                <div class="col-md-6">
+                    <h2 class="text-center text-md-start mb-4"
+                        style="
+                            font-weight: 800;
+                            font-size: 2.8rem;
+                            color: #2c3e50;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.01);
+                        ">
+                        About Us
+                    </h2>
+                    <p class="text-center text-md-start"
+                       style="
+                           font-size: 1.2rem;
+                           line-height: 1.9;
+                           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                           font-weight: 500;
+                           color: black;
+                           word-spacing: 1px;
+                           letter-spacing: 0.5px;
+                       ">
+                        We are dedicated to providing the <strong>best user experience</strong> through our innovative platform. 
+                        Our mission is to <strong>connect people</strong> and help them achieve their goals by leveraging 
+                        <strong>cutting-edge technology</strong> and unparalleled support. <br><br>
+                        <em>Join us on this journey to turn your aspirations into reality.</em>
+                    </p>
+                </div>
+      
+                <!-- About Us Image -->
+                <div class="col-md-6 text-center">
+                    <img src="https://tse2.mm.bing.net/th?id=OIP.74fZpkR9wuzEj25Vb5E_DgHaEJ&pid=Api&P=0&h=180" 
+                         alt="About Us" 
+                         class="img-fluid rounded-4 shadow-lg"
+                         style="border: 3px solid rgba(0, 0, 0, 0.1); transition: transform 0.3s ease;"
+                         onmouseover="this.style.transform='scale(1.03)'"
+                         onmouseout="this.style.transform='scale(1)'">
+                </div>
+            </div>
+        </div>
+      </div>
+      
+
+
+
+
+  <!-- Feedback Section -->
+  <div class="section  mt-5 rounded-3 shadow-lg" style=" background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%),radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%), linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);">
+      <div class="container">
+          <h2 class="text-center mb-3" style="font-size: 2.5rem; font-weight: 800; color: #1f3c88; letter-spacing: 1px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.05); text-transform: uppercase; ">Know us</h2>
+          <div class="row mt-4">
+              <div class="col-md-12">
+                  <p class="text-center" style="font-size: 1.15rem; line-height: 1.8; color: #444; font-weight: 500;  padding: 0 10px;">
+                    Our platform is trusted by thousands of users worldwide. We strive to provide top-notch features, a user-friendly experience, and exceptional customer support. Your feedback drives us to improve and innovate, ensuring we meet your needs and exceed your expectations.
+                  </p>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  
+
+
+
+  <!-- Sign Up Modal -->
+  <div class="modal fade" id="signupModal" tabindex="-1">
+      <div class="modal-dialog">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title">Sign Up</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                  <form action="/register" method="POST">
+                      <input type="text" name="username" class="form-control mb-2" placeholder="Username" required>
+                      <input type="email" name="email" class="form-control mb-2" placeholder="Email" required>
+                      <input type="password" name="password" class="form-control mb-2" placeholder="Password" required>
+                      <button type="submit" class="btn btn-primary">Sign Up</button>
+                  </form>
+              </div>
+          </div>
+      </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal fade" id="loginModal" tabindex="-1">
+      <div class="modal-dialog">
+          <div class="modal-content">
+              <div class="modal-header">
+                  <h5 class="modal-title">Login</h5>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+              </div>
+              <div class="modal-body">
+                  <form action="/login" method="POST">
+                      <input type="text" name="username" class="form-control mb-2" placeholder="Username" required>
+                      <input type="password" name="password" class="form-control mb-2" placeholder="Password" required>
+                      <button type="submit" class="btn btn-secondary">Login</button>
+                      <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#forget-password">Forget Password</button>
+                      <p>if your new please sign up first <button class="btn btn-outline-primary me-2" data-bs-toggle="modal" data-bs-target="#signupModal">Sign Up</button> </p>
+                  </form>
+              </div>
+          </div>
+      </div>
+  </div>
+
+
+<!-- Forget Password Modal -->
+<div class="modal fade" id="forget-password" tabindex="-1">
+  <div class="modal-dialog">
+      <div class="modal-content">
+          <div class="modal-header">
+              <h5 class="modal-title">Forget Password</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+              <form action="/forget-password"  method="POST">
+                  <input type="email" name="email" class="form-control mb-2" placeholder="Enter your email" required>
+                  <button type="submit" class="btn btn-secondary">Send Reset Link</button>
+              </form>
+          </div>
+      </div>
+  </div>
+</div>
+
+
+<!-- Footer Information -->
+<section id="footer" class="py-5 mt-5 " style="background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.025) 0%, transparent 30%), radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.025) 0%, transparent 30%),  linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);">
+<div class="container">
+    <div class="card shadow-lg border-0 bg-transparent">
+        <div class="card-body p-1">
+            <h2  class="text-center mb-5 fw-bold text-uppercase" style="font-size: 3rem; background: linear-gradient(90deg, #005eff, #00c3ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; letter-spacing: 2px; text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2); transition: transform 0.3s ease-in-out; cursor: default; " onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'" >AlertVision Security</h2>
+            
+            <div class="row g-5">
+                <!-- Company Info -->
+                <div class="col-md-6">
+                    <div class="p-4 rounded-3 h-100" 
+                         style="background-color: rgba(var(--bs-gray-800-rgb), 0.9); 
+                                border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 class="text-primary mb-4"><i class="fa fa-shield me-2"></i>Sentinel AI Enterprise Suite</h3>
+
+                        
+                        <strong style="font-size: 1.5rem;">Development Team:</strong>
+
+                        <div class="text-center mb-3">                                <ul 
+                                class="text-white-75" 
+                                style="
+                                display: inline-block;      /* shrink to fit content */
+                                text-align: left;           /* keep bullet/text left-aligned */
+                                list-style-position: inside; /* bullet sits inside the box */
+                                margin-top: 0.5rem;
+                                padding-left: 0;            /* remove browser default indent */
+                                "
+                            >
+                                <li>Anand Ramesh Soni</li>
+                                <li>Vivek Sapkale</li>
+                                <li>Harsh Anil Vertak</li>
+                                <li>Swarup Thakur</li>
+                            </ul>
+                            </div>
+                        <br>
+                        <p class="text-white-80 lead" style="font-size: 1.2rem;">
+                            Leveraging cutting-edge AI surveillance technology with 99.9% detection accuracy. 
+                            Our platform integrates seamlessly with existing security infrastructure while 
+                            providing real-time analytics and cross-platform compatibility.
+                        </p>
+                        <div class="mt-4 text-center">
+                            <i class="fa fa-certificate text-warning me-2"></i>
+                            <span class="text-black-50">ISO 27001 Certified Security</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="col-md-6">
+                    <div class="p-4 rounded-3 h-100" 
+                         style="background-color: rgba(var(--bs-gray-800-rgb), 0.9);
+                                border: 1px solid rgba(255,255,255,0.1);">
+                        <h3 class="text-primary mb-4"><i class="fa fa-life-ring me-2"></i>Contact Support</h3>
+                        <ul class="list-unstyled text-white-75">
+                            <li class="mb-3">
+                                <i class="fa fa-map-marker text-danger me-2"></i>
+                                <strong>HQ:</strong> Security Complex, Tech Valley Zone 9
+                            </li>
+                            <li class="mb-3">
+                                <i class="fa fa-envelope text-info me-2"></i>
+                                <strong>Email:</strong> support@alertvision.com
+                            </li>
+                            <li class="mb-4">
+                                <i class="fa fa-phone text-success me-2"></i>
+                                <strong>Emergency:</strong> +1 (800) 555-SAFE
+                            </li>
+                        </ul>
+                        
+                        <!-- Social Links -->
+                        <div class="text-center mt-4">
+                            <h5 class="text-black mb-3">Connect With Us</h5>
+                            <div class="d-flex justify-content-center gap-3">
+                                <a href="#" class="btn btn-light btn-sm rounded-circle p-2 text-primary">
+                                  <i class="fa fa-facebook"></i>
+                                </a>
+                                <a href="#" class="btn btn-light btn-sm rounded-circle p-2 text-info">
+                                  <i class="fa fa-twitter"></i>
+                                </a>
+                                <a href="#" class="btn btn-light btn-sm rounded-circle p-2 text-danger">
+                                  <i class="fa fa-instagram"></i>
+                                </a>
+                                <a href="#" class="btn btn-light btn-sm rounded-circle p-2 text-success">
+                                  <i class="fa fa-whatsapp"></i>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center mt-5">
+                <hr class="border-secondary border-opacity-25">
+                <p class="text-white-50 mt-3">
+                    <i class="fa fa-lock me-2"></i>256-bit Encryption | 24/7 Monitoring | GDPR Compliant
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+</section>
+
+<!-- Footer -->
+<!-- Footer Section -->
+<footer class=" bg-opacity-25 shadow-lg rounded-3 border border-secondary border-opacity-10 text-dark mt-5 py-3" style=" background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.05) 0%, transparent 30%),radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.05) 0%, transparent 30%), linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);">
+<div class="container text-center">
+  <p class="mb-0">
+    &copy; 2025 My Website. All Rights Reserved. 
+    <span class="fw-bold">{Powered_By(AegisVision)}</span>
+  </p>
+</div>
+</footer>
+
+  
+
+
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js" integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy" crossorigin="anonymous"></script>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
+  const loginButton = document.querySelector(".btn-outline-secondary");
+  
+  loginButton.addEventListener("click", function () {
+      loginModal.show();
+  });
+  
+  // Show modal after 2 seconds when the page loads
+  setTimeout(() => {
+      loginModal.show();
+  }, 5000);
+});
+</script>
+</body>
+</html>
+
