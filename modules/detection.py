@@ -111,7 +111,7 @@ def generate_frames(video_source, model, tracker, global_state):
             cv2.putText(frame, f"ID {pid}: {gender_text}",
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255, 255, 255), 2)
-
+ 
         success, buffer = cv2.imencode('.jpg', frame)
         if not success:
             continue
