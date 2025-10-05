@@ -8,7 +8,8 @@ from modules.utils import send_alert_email
 from modules.face_analysis import build_model, analyze_gender
 
 # ✅ Load gender model once
-gender_model = build_model(r"static\gender_mobilenetv2.pth")
+gender_model = build_model(r"static/gender_model_best.h5")
+
 
 def analyze_gender_wrapper(face_crop, global_state, person_id):
     """Thread-safe wrapper to run gender inference and update state."""
