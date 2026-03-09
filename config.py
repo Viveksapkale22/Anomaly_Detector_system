@@ -12,9 +12,6 @@ class Config:
 
     # MongoDB connection
     MONGO_URI = os.getenv("MONGO_URI", "mongodb+srv://cluster0.mcjuw.mongodb.net/?authSource=%24external&authMechanism=MONGODB-X509&retryWrites=true&w=majority&appName=Cluster0")
-    
-    # Upload settings
-    UPLOAD_FOLDER = "uploads"
     ALLOWED_EXTENSIONS = {"mp4"}
 
     # Alert system

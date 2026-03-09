@@ -21,7 +21,8 @@ MONGO_URI = "mongodb+srv://cluster0.mcjuw.mongodb.net/?authSource=%24external&au
 client = MongoClient(
     MONGO_URI,
     tls=True,
-    tlsCertificateKeyFile=r"templates\X509-cert-7398551624606348947.pem"
+    tlsCertificateKeyFile=r"templates\X509-cert-2052612786362920307.pem",
+
 )
 db = client["UserDB"]
 users_collection = db["users"]
