@@ -2,83 +2,68 @@
 
 import os
 import cv2
-import numpy as np
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
-from tensorflow.keras.applications import MobileNetV2
+import torch
+from torchvision import models, transforms
+from PIL import Image
 
-# Image size for model input
+# Default path to the best gender model weights (PyTorch)
+DEFAULT_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "best_gender_model.pth")
+
+# Use GPU if available, else CPU
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 IMG_SIZE = (224, 224)
 
-def build_model(weights_path):
+_transform = transforms.Compose([
+    transforms.Resize(IMG_SIZE),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+
+def build_model(weights_path: str = None):
+    """Load the gender classification model.
+
+    Uses EfficientNet-B0 architecture and loads weights from a .pth checkpoint.
     """
-    Build MobileNetV2-based gender classification model and load .h5 weights.
-    """
-    if not os.path.exists(weights_path):
-        raise FileNotFoundError(f"❌ Model weights not found: {weights_path}")
+    path = weights_path or DEFAULT_MODEL_PATH
+    if not os.path.exists(path):
+        raise FileNotFoundError(f"Gender model weights not found: {path}")
 
-    try:
-        # Load pretrained MobileNetV2 base
-        base_model = MobileNetV2(weights="imagenet", include_top=False,
-                                 input_shape=(IMG_SIZE[0], IMG_SIZE[1], 3))
-        base_model.trainable = False  # freeze base layers
-
-        # Add custom classification head
-        x = base_model.output
-        x = GlobalAveragePooling2D()(x)
-        x = Dropout(0.3)(x)
-        x = Dense(128, activation="relu")(x)
-        output = Dense(1, activation="sigmoid")(x)
-
-        model = Model(inputs=base_model.input, outputs=output)
-        model.load_weights(weights_path)
-
-        print("✅ Gender model (MobileNetV2) loaded successfully.")
-        return model
-
-    except Exception as e:
-        print(f"❌ Error loading gender model: {e}")
-        raise e
+    model = models.efficientnet_b0(weights=None)
+    model.classifier[1] = torch.nn.Linear(model.classifier[1].in_features, 2)
+    model.load_state_dict(torch.load(path, map_location=DEVICE))
+    model.to(DEVICE)
+    model.eval()
+    return model
 
 
-def preprocess_face(face_crop):
-    """
-    Preprocess cropped face for MobileNetV2 inference.
-    """
-    if face_crop is None or face_crop.size == 0:
+def preprocess_image(bgr_image):
+    if bgr_image is None or bgr_image.size == 0:
         return None
 
     try:
-        img = cv2.resize(face_crop, IMG_SIZE)
-        img = img / 255.0  # normalize
-        img = np.expand_dims(img, axis=0)  # batch dimension
-        return img
+        rgb = cv2.cvtColor(bgr_image, cv2.COLOR_BGR2RGB)
+        pil_img = Image.fromarray(rgb)
+        tensor = _transform(pil_img).unsqueeze(0).to(DEVICE)
+        return tensor
     except Exception as e:
-        print(f"[GenderModel] Preprocessing error: {e}")
+        print(f"[GenderModel] Preprocess error: {e}")
         return None
 
 
 def analyze_gender(face_crop, model):
-    """
-    Analyze gender using the MobileNetV2 TensorFlow model.
-    Returns 'Male', 'Female', or 'Unknown'.
-    """
-    try:
-        if model is None:
-            print("❌ Gender model not loaded!")
-            return "Unknown"
+    """Return 'male' or 'female' using the supplied model."""
+    if model is None:
+        return "unknown"
 
-        img_array = preprocess_face(face_crop)
-        if img_array is None:
-            return "Unknown"
+    tensor = preprocess_image(face_crop)
+    if tensor is None:
+        return "unknown"
 
-        # Run inference
-        pred_prob = model.predict(img_array, verbose=0)[0][0]
-        gender = "male" if pred_prob > 0.5 else "female"
+    with torch.no_grad():
+        out = model(tensor)
+        probs = torch.nn.functional.softmax(out, dim=1)
+        conf, pred = torch.max(probs, dim=1)
 
-        print(f"[GenderModel] Prediction: {gender} ({pred_prob:.2f})")
-        return gender
-
-    except Exception as e:
-        print(f"[GenderModel] Error: {e}")
-        return "Unknown"
+    return "male" if pred.item() == 0 else "female"

@@ -16,3 +16,6 @@ class Config:
 
     # Alert system
     ALERT_INTERVAL = 20  # seconds
+
+    # Debug mode (prints alert triggers)
+    DEBUG_ALERTS = os.getenv("DEBUG_ALERTS", "false").lower() in ("1", "true", "yes")

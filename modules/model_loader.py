@@ -1,6 +1,8 @@
 # File: modules/model_loader.py
 
 import os
+import sys
+import contextlib
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
@@ -12,10 +14,20 @@ def load_yolo_model(model_path='yolov8n.pt'):
     original_call = model.__call__
 
     def call_with_person_only(*args, **kwargs):
-        # Run normal detection (with or without classes filter)
-        results = original_call(*args, **kwargs)
-        
-        # Filter detections: keep only class 0 (person)
+        # Force person-only detection and suppress YOLO console output.
+        # This prevents printing "3 persons, 1 bowl, 2 bananas" etc.
+        kwargs['classes'] = [0]
+        kwargs['verbose'] = False
+        kwargs['show'] = False
+        kwargs['hide_labels'] = True
+        kwargs['hide_conf'] = True
+        kwargs['save'] = False
+
+        # Some versions still print to stdout; suppress it entirely.
+        with open(os.devnull, 'w') as devnull, contextlib.redirect_stdout(devnull), contextlib.redirect_stderr(devnull):
+            results = original_call(*args, **kwargs)
+
+        # Filter detections: keep only class 0 (person) as a safety net
         for result in results:
             if hasattr(result, 'boxes') and result.boxes is not None:
                 boxes = result.boxes

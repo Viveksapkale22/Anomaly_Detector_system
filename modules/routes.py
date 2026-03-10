@@ -23,6 +23,7 @@ def register_routes(app, model, tracker, users_collection, bcrypt, user_data_sto
         "selected_gender": "both",
         "gender_labels": {},
         "processing": {},
+        "last_gender_time": {},
         "last_alert_time": {},
         "person_tracks": {},
         "person_counter": 0,

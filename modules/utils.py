@@ -5,7 +5,6 @@ import numpy as np
 import time
 import winsound
 import os
-from deepface import DeepFace
 import smtplib
 from config import Config
 
@@ -100,18 +99,6 @@ def count_persons(model, frame):
 
 
 
-def analyze_gender(person_id, face_crop, global_state):
-    """Run DeepFace for gender detection."""
-    global_state['processing'][person_id] = True
-    try:
-        result = DeepFace.analyze(face_crop, actions=['gender'], enforce_detection=False)
-        gender_dict = result[0]['gender']
-        gender = max(gender_dict, key=gender_dict.get)
-        global_state['gender_labels'][person_id] = gender
-    except Exception as e:
-        print(f"[DeepFace] Gender detection error for ID {person_id}:", e)
-        global_state['gender_labels'][person_id] = "Unknown"
-    global_state['processing'][person_id] = False
 
 def save_frame_and_get_path(frame, person_id, upload_folder="uploads"):
     """Save alert image frame and return the file path."""
