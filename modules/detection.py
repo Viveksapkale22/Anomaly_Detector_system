@@ -19,10 +19,28 @@ gender_model = build_model(r"static/best_gender_model.pth")
 # Optional face detection model (YOLO). Disable for max speed.
 USE_FACE_DETECTION = False
 FACE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "model.pt")
-face_model = YOLO(FACE_MODEL_PATH) if USE_FACE_DETECTION else None
+face_model = None
+if USE_FACE_DETECTION:
+    if not os.path.exists(FACE_MODEL_PATH):
+        print(f"[GenderModel] Face model not found at {FACE_MODEL_PATH}; disabling face-crop mode.")
+        USE_FACE_DETECTION = False
+    else:
+        try:
+            face_model = YOLO(FACE_MODEL_PATH)
+        except Exception as e:
+            print(f"[GenderModel] Failed to load face detection model: {e}")
+            face_model = None
+            USE_FACE_DETECTION = False
 
 # Per-person gender inference cooldown (seconds)
-GENDER_INFERENCE_COOLDOWN = 1.5
+# (We're doing gender inference less often to save compute and keep IDs stable)
+GENDER_INFERENCE_COOLDOWN = 10.0
+
+# How often we run face detection (in frames)
+FACE_DETECTION_INTERVAL = 5  # run face detector every N frames (only if USE_FACE_DETECTION=True)
+
+# How often we run full person detection (in frames)
+DETECTION_FRAME_SKIP = 2  # run person detection every N frames (lower = smoother but slower)
 
 
 def analyze_gender_wrapper(face_crop, global_state, person_id):
@@ -43,9 +61,11 @@ def generate_frames(video_source, model, tracker, global_state):
         print("Error opening video source.")
         return
 
-    frame_skip = 3
+    frame_skip = DETECTION_FRAME_SKIP
     frame_count = 0
     resize_factor = 0.5
+    face_frame_counter = 0
+    current_faces = []
 
     while not global_state['stop_video_flag'].is_set():
         success, frame = cap.read()
@@ -53,13 +73,33 @@ def generate_frames(video_source, model, tracker, global_state):
             break
 
         frame_count += 1
+
+        # Run person detection every N frames (configured by DETECTION_FRAME_SKIP)
         if frame_count % frame_skip != 0:
+            # Still update UI elements, but skip detection + tracking this frame
+            # to save compute.
+            # Draw previous tracked boxes + labels if we have them.
+            for pid, x1, y1, x2, y2 in global_state['detected_persons']:
+                gender_text = global_state['gender_labels'].get(pid, "Unknown")
+                cv2.putText(frame, f"ID {pid}: {gender_text}",
+                            (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
+                            0.5, (255, 255, 255), 2)
+            cv2.putText(frame,
+                        f"Persons: {len(global_state['detected_persons'])}",
+                        (20, frame.shape[0] - 100),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+            yield_frame = frame.copy()
+            success, buffer = cv2.imencode('.jpg', yield_frame)
+            if not success:
+                continue
+            yield (b'--frame\r\n'
+                   b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+            time.sleep(0.01)
             continue
 
         # ✅ Person counting
-        person_count = count_persons(model, frame) if global_state['counting_enabled'] else 0
-        cv2.putText(frame, f"Persons: {person_count}", (20, frame.shape[0] - 100),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+        # We'll update person_count after tracking so it reflects stable IDs.
+        person_count = 0
 
         small_frame = cv2.resize(frame, (int(frame.shape[1] * resize_factor), int(frame.shape[0] * resize_factor)))
 
@@ -68,99 +108,140 @@ def generate_frames(video_source, model, tracker, global_state):
         results = model(small_frame)
         global_state['detected_persons'].clear()
 
-        # Optionally run face detection once per frame (help gender classifier focus on the face)
-        faces = []
+        # Optionally run face detection every few frames (helps performance)
         if USE_FACE_DETECTION and face_model is not None:
-            face_results = face_model(small_frame)
-            for fr in face_results:
-                if fr.boxes is None:
-                    continue
-                for fbox in fr.boxes.xyxy:
-                    fx1, fy1, fx2, fy2 = map(int, fbox.cpu().numpy())
-                    # Scale to original frame coordinates
-                    fx1, fy1, fx2, fy2 = int(fx1 / resize_factor), int(fy1 / resize_factor), int(fx2 / resize_factor), int(fy2 / resize_factor)
-                    faces.append((fx1, fy1, fx2, fy2))
+            face_frame_counter += 1
+            if face_frame_counter % FACE_DETECTION_INTERVAL == 0:
+                current_faces = []
+                face_results = face_model(small_frame)
+                for fr in face_results:
+                    if fr.boxes is None:
+                        continue
+                    for fbox in fr.boxes.xyxy:
+                        fx1, fy1, fx2, fy2 = map(int, fbox.cpu().numpy())
+                        # Scale to original frame coordinates
+                        fx1, fy1, fx2, fy2 = int(fx1 / resize_factor), int(fy1 / resize_factor), int(fx2 / resize_factor), int(fy2 / resize_factor)
+                        current_faces.append((fx1, fy1, fx2, fy2))
+        faces = current_faces
 
-        # Process people and (optionally) match detected faces
+        # Build person detections for tracker (small-frame coords)
+        tracker_detections = []
         for result in results:
             for box in result.boxes:
-                x1, y1, x2, y2 = map(int, box.xyxy[0])
                 cls = int(box.cls[0].item())
-                conf = box.conf[0].item()
-
-                # Scale back to original frame size
-                x1, y1, x2, y2 = int(x1 / resize_factor), int(y1 / resize_factor), int(x2 / resize_factor), int(y2 / resize_factor)
-                cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
-                label = f"{result.names[cls]} {conf:.2f}"
-                # Draw label above the bounding box
-                cv2.putText(frame, label, (x1, max(15, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
-
                 if cls != 0:
                     continue
+                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                conf = float(box.conf[0].item())
+                w, h = x2 - x1, y2 - y1
+                if w <= 0 or h <= 0:
+                    continue
+                tracker_detections.append(([x1, y1, w, h], conf, "person"))
 
-                person_id = track_person(global_state, (x1, y1, x2, y2))
-                global_state['detected_persons'].append((person_id, x1, y1, x2, y2))
-
-                # Assign face to this person (closest overlapping face)
-                best_face = None
-                best_area = 0
-                if faces:
-                    for fx1, fy1, fx2, fy2 in faces:
-                        # compute intersection area
-                        ix1 = max(x1, fx1)
-                        iy1 = max(y1, fy1)
-                        ix2 = min(x2, fx2)
-                        iy2 = min(y2, fy2)
-                        if ix2 <= ix1 or iy2 <= iy1:
-                            continue
-                        area = (ix2 - ix1) * (iy2 - iy1)
-                        if area > best_area:
-                            best_area = area
-                            best_face = (fx1, fy1, fx2, fy2)
-
-                # ✅ Check restricted area & trigger alert
-                if global_state['restricted_area'] and boxes_intersect((x1, y1, x2, y2), global_state['restricted_area']):
-                    gender = global_state['gender_labels'].get(person_id, "unknown").lower()
-                    if gender == "unknown" or (global_state['selected_gender'] != "both" and gender != global_state['selected_gender'].lower()):
-                        now = time.time()
-                        if person_id not in global_state['last_alert_time'] or now - global_state['last_alert_time'][person_id] > 20:
-                            play_alert()
-                            cv2.putText(frame, "ALERT!", (50, frame.shape[0] - 150),
-                                        cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-                            alert_frame = frame.copy()
-                            email = global_state.get("email", "viveksapkale022@gmail.com")
-                            threading.Thread(target=send_alert_email,
-                                             args=(email, alert_frame, person_id, person_count)).start()
-                            if Config.DEBUG_ALERTS:
-                                print(f"alert triggered: person_id={person_id}, person_count={person_count}")
-                            global_state['last_alert_time'][person_id] = now
-
-                # ✅ Gender analysis (threaded, one per person at a time)
-                now = time.time()
-                last_gender_time = global_state.get('last_gender_time', {}).get(person_id, 0)
-                if (person_id not in global_state['processing'] or not global_state['processing'][person_id]) and \
-                   (now - last_gender_time) > GENDER_INFERENCE_COOLDOWN:
-
-                    person_crop = frame[y1:y2, x1:x2]
-                    if person_crop.size == 0:
+        # Update tracker and get stable IDs
+        tracked_people = []  # list of (person_id, x1, y1, x2, y2) in small-frame coords
+        if tracker is not None:
+            tracks = tracker.update_tracks(tracker_detections, frame=small_frame)
+            for track in tracks:
+                if not track.is_confirmed():
+                    continue
+                tlbr = track.to_ltrb()
+                if tlbr is None:
+                    continue
+                tx1, ty1, tx2, ty2 = map(int, tlbr)
+                # Filter out tiny/invalid tracks (can appear when tracker drifts)
+                if tx2 - tx1 < 20 or ty2 - ty1 < 20:
+                    continue
+                tracked_people.append((track.track_id, tx1, ty1, tx2, ty2))
+        else:
+            # Fallback to simple intersection tracking
+            for result in results:
+                for box in result.boxes:
+                    cls = int(box.cls[0].item())
+                    if cls != 0:
                         continue
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    person_id = track_person(global_state, (x1, y1, x2, y2))
+                    tracked_people.append((person_id, x1, y1, x2, y2))
 
-                    # Prefer face crop (if found) otherwise use the full person crop
-                    if best_face:
-                        fx1, fy1, fx2, fy2 = best_face
-                        face_crop = frame[fy1:fy2, fx1:fx2]
-                        # (face box removed for speed / UI clarity)
-                    else:
-                        face_crop = person_crop
+        # Process each tracked person (convert to original frame scale, run face/gender)
+        global_state['detected_persons'].clear()
+        person_count = len(tracked_people)
+        for person_id, tx1, ty1, tx2, ty2 in tracked_people:
+            # Convert track box back to full frame coords
+            x1, y1, x2, y2 = int(tx1 / resize_factor), int(ty1 / resize_factor), int(tx2 / resize_factor), int(ty2 / resize_factor)
 
-                    if face_crop.size == 0:
+            # Draw person bounding box and ID
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 0, 0), 2)
+            cv2.putText(frame, f"ID {person_id}", (x1, max(15, y1 - 10)), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 0), 1, cv2.LINE_AA)
+
+            global_state['detected_persons'].append((person_id, x1, y1, x2, y2))
+
+            # Ensure we have a placeholder label to avoid blank text on first frame
+            if person_id not in global_state['gender_labels']:
+                global_state['gender_labels'][person_id] = "Calculating"
+
+            # Assign face to this person (closest overlapping face)
+            best_face = None
+            best_area = 0
+            if faces:
+                for fx1, fy1, fx2, fy2 in faces:
+                    # compute intersection area
+                    ix1 = max(x1, fx1)
+                    iy1 = max(y1, fy1)
+                    ix2 = min(x2, fx2)
+                    iy2 = min(y2, fy2)
+                    if ix2 <= ix1 or iy2 <= iy1:
                         continue
+                    area = (ix2 - ix1) * (iy2 - iy1)
+                    if area > best_area:
+                        best_area = area
+                        best_face = (fx1, fy1, fx2, fy2)
 
-                    global_state['processing'][person_id] = True
-                    global_state['last_gender_time'][person_id] = now
-                    threading.Thread(target=analyze_gender_wrapper,
-                                     args=(face_crop, global_state, person_id),
-                                     daemon=True).start()
+            # ✅ Check restricted area & trigger alert
+            if global_state['restricted_area'] and boxes_intersect((x1, y1, x2, y2), global_state['restricted_area']):
+                gender = global_state['gender_labels'].get(person_id, "unknown").lower()
+                if gender == "unknown" or (global_state['selected_gender'] != "both" and gender != global_state['selected_gender'].lower()):
+                    now = time.time()
+                    if person_id not in global_state['last_alert_time'] or now - global_state['last_alert_time'][person_id] > 20:
+                        play_alert()
+                        cv2.putText(frame, "ALERT!", (50, frame.shape[0] - 150),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
+                        alert_frame = frame.copy()
+                        email = global_state.get("email", "viveksapkale022@gmail.com")
+                        threading.Thread(target=send_alert_email,
+                                         args=(email, alert_frame, person_id, person_count)).start()
+                        if Config.DEBUG_ALERTS:
+                            print(f"alert triggered: person_id={person_id}, person_count={person_count}")
+                        global_state['last_alert_time'][person_id] = now
+
+            # ✅ Gender analysis (threaded, one per person at a time)
+            now = time.time()
+            last_gender_time = global_state.get('last_gender_time', {}).get(person_id, 0)
+            if (person_id not in global_state['processing'] or not global_state['processing'][person_id]) and \
+               (now - last_gender_time) > GENDER_INFERENCE_COOLDOWN:
+
+                person_crop = frame[y1:y2, x1:x2]
+                if person_crop.size == 0:
+                    continue
+
+                # Prefer face crop (if found) otherwise use the upper portion of the person box
+                if best_face:
+                    fx1, fy1, fx2, fy2 = best_face
+                    face_crop = frame[fy1:fy2, fx1:fx2]
+                    # (face box removed for speed / UI clarity)
+                else:
+                    h = max(1, y2 - y1)
+                    face_crop = frame[y1:y1 + int(h * 0.4), x1:x2]
+
+                if face_crop.size == 0:
+                    continue
+
+                global_state['processing'][person_id] = True
+                global_state['last_gender_time'][person_id] = now
+                threading.Thread(target=analyze_gender_wrapper,
+                                 args=(face_crop, global_state, person_id),
+                                 daemon=True).start()
 
         # ✅ Draw restricted area overlay if set
         if global_state['restricted_area']:
@@ -176,7 +257,31 @@ def generate_frames(video_source, model, tracker, global_state):
             cv2.putText(frame, f"ID {pid}: {gender_text}",
                         (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX,
                         0.5, (255, 255, 255), 2)
- 
+
+        # Show active tracking IDs to help diagnose duplicate/flickering tracks
+        active_ids = ",".join(str(pid) for pid, *_ in global_state['detected_persons'])
+        if active_ids:
+            cv2.putText(frame, f"IDs: {active_ids}",
+                        (20, frame.shape[0] - 80),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1, cv2.LINE_AA)
+
+        # ✅ Overlay person + gender counts (helps verify all IDs are being processed)
+        person_count = len(global_state['detected_persons'])
+        male_count = female_count = unknown_count = 0
+        for pid, *_ in global_state['detected_persons']:
+            gender_text = global_state['gender_labels'].get(pid, "Unknown").lower()
+            if gender_text == "male":
+                male_count += 1
+            elif gender_text == "female":
+                female_count += 1
+            else:
+                unknown_count += 1
+
+        cv2.putText(frame,
+                    f"Persons: {person_count} (M:{male_count} F:{female_count} U:{unknown_count})",
+                    (20, frame.shape[0] - 100),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2, cv2.LINE_AA)
+
         success, buffer = cv2.imencode('.jpg', frame)
         if not success:
             continue

@@ -3,13 +3,19 @@
 import os
 import sys
 import contextlib
+
+import numpy as np
+# Fix for numpy>=1.24: deep_sort_realtime still uses np.float (deprecated)
+if not hasattr(np, "float"):
+    np.float = float
+
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
 
 from ultralytics import YOLO
 
-def load_yolo_model(model_path='yolov8n.pt'):
+def load_yolo_model(model_path='best.pt'):
     model = YOLO(model_path)
     original_call = model.__call__
 
@@ -46,6 +52,18 @@ def load_yolo_model(model_path='yolov8n.pt'):
 
 
 def init_tracker():
-    """Initialize DeepSORT tracker."""
-    tracker = DeepSort(max_age=30, n_init=1)
+    """Initialize DeepSORT tracker.
+
+    Tuned for more stable IDs and fewer short-lived/duplicate tracks.
+    """
+    # Some deep_sort_realtime versions do not expose max_iou_distance as an init
+    # argument. Use introspection to pick a supported signature.
+    from inspect import signature
+
+    sig = signature(DeepSort.__init__)
+    kwargs = {"max_age": 60, "n_init": 3}
+    if "max_iou_distance" in sig.parameters:
+        kwargs["max_iou_distance"] = 0.8
+
+    tracker = DeepSort(**kwargs)
     return tracker
