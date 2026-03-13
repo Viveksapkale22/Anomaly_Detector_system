@@ -12,21 +12,34 @@ from config import Config
 SENDER_EMAIL = Config.SENDER_EMAIL
 SENDER_PASSWORD = Config.SENDER_PASSWORD
 
-def send_alert_email(email, frame, person_id, person_count , upload_folder="uploads" ):
+def send_alert_email(email, frame, subject=None, body=None, upload_folder="uploads"):
+    """Send an alert email with a snapshot image attachment.
+
+    Args:
+        email: Destination email address.
+        frame: BGR image to attach.
+        subject: Email subject (defaults to a generic alert subject).
+        body: Email body text (defaults to a generic alert message).
+        upload_folder: Folder to save the snapshot.
+    """
     import cv2
     import time
     from email.message import EmailMessage
 
+    # Ensure the upload folder exists
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+
     timestamp = int(time.time())
-    filename = f"alert_{person_id}_{timestamp}.jpg"
-    filepath = f"{upload_folder}/{filename}"
+    filename = f"alert_{timestamp}.jpg"
+    filepath = os.path.join(upload_folder, filename)
     cv2.imwrite(filepath, frame)
 
     msg = EmailMessage()
-    msg["Subject"] = "Security Alert: Intrusion Detected"
+    msg["Subject"] = subject or "Security Alert"
     msg["From"] = SENDER_EMAIL
     msg["To"] = email
-    msg.set_content(f"A person has been detected in a restricted area. the number of persons count {person_count} See attached image.")
+    msg.set_content(body or "An alert was triggered. See attached image.")
 
     with open(filepath, "rb") as f:
         img_data = f.read()

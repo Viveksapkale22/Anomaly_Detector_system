@@ -16,6 +16,14 @@ from config import Config
 # This is the model used to label (male/female) above the person box.
 gender_model = build_model(r"static/best_gender_model.pth")
 
+
+# --- ADD THIS TO TOP OF detection.py ---
+try:
+    fire_model = YOLO(r'train_fire_weapon.pt')
+except Exception as e:
+    print(f"[FireModel] Failed to load fire/weapon model: {e}")
+    fire_model = None
+
 # Optional face detection model (YOLO). Disable for max speed.
 USE_FACE_DETECTION = False
 FACE_MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "test", "model.pt")
@@ -141,18 +149,22 @@ def generate_frames(video_source, model, tracker, global_state):
         # Update tracker and get stable IDs
         tracked_people = []  # list of (person_id, x1, y1, x2, y2) in small-frame coords
         if tracker is not None:
-            tracks = tracker.update_tracks(tracker_detections, frame=small_frame)
-            for track in tracks:
-                if not track.is_confirmed():
-                    continue
-                tlbr = track.to_ltrb()
-                if tlbr is None:
-                    continue
-                tx1, ty1, tx2, ty2 = map(int, tlbr)
-                # Filter out tiny/invalid tracks (can appear when tracker drifts)
-                if tx2 - tx1 < 20 or ty2 - ty1 < 20:
-                    continue
-                tracked_people.append((track.track_id, tx1, ty1, tx2, ty2))
+            if tracker_detections:
+                tracks = tracker.update_tracks(tracker_detections, frame=small_frame)
+                for track in tracks:
+                    if not track.is_confirmed():
+                        continue
+                    tlbr = track.to_ltrb()
+                    if tlbr is None:
+                        continue
+                    tx1, ty1, tx2, ty2 = map(int, tlbr)
+                    # Filter out tiny/invalid tracks (can appear when tracker drifts)
+                    if tx2 - tx1 < 20 or ty2 - ty1 < 20:
+                        continue
+                    tracked_people.append((track.track_id, tx1, ty1, tx2, ty2))
+            else:
+                # No detections; keep previous tracked people (or none)
+                tracks = []
         else:
             # Fallback to simple intersection tracking
             for result in results:
@@ -203,14 +215,19 @@ def generate_frames(video_source, model, tracker, global_state):
                 gender = global_state['gender_labels'].get(person_id, "unknown").lower()
                 if gender == "unknown" or (global_state['selected_gender'] != "both" and gender != global_state['selected_gender'].lower()):
                     now = time.time()
-                    if person_id not in global_state['last_alert_time'] or now - global_state['last_alert_time'][person_id] > 20:
+                    if person_id not in global_state['last_alert_time'] or now - global_state['last_alert_time'][person_id] > Config.ALERT_INTERVAL:
                         play_alert()
                         cv2.putText(frame, "ALERT!", (50, frame.shape[0] - 150),
                                     cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
                         alert_frame = frame.copy()
                         email = global_state.get("email", "viveksapkale022@gmail.com")
-                        threading.Thread(target=send_alert_email,
-                                         args=(email, alert_frame, person_id, person_count)).start()
+                        subject = "Security Alert: Restricted Area Breach"
+                        body = f"Person ID {person_id} entered the restricted area. Total persons: {person_count}."
+                        threading.Thread(
+                            target=send_alert_email,
+                            args=(email, alert_frame),
+                            kwargs={"subject": subject, "body": body},
+                        ).start()
                         if Config.DEBUG_ALERTS:
                             print(f"alert triggered: person_id={person_id}, person_count={person_count}")
                         global_state['last_alert_time'][person_id] = now
@@ -292,6 +309,84 @@ def generate_frames(video_source, model, tracker, global_state):
 
     cap.release()
 
+
+
+
+def generate_fire_frames(video_source, fire_state):
+    """Isolated video generation pipeline for Fire & Weapon detection."""
+    cap = cv2.VideoCapture(video_source)
+    if not cap.isOpened():
+        print("[FireModel] Error opening fire video source.")
+        return
+
+    ALERT_COOLDOWN = 60
+
+    while True:
+        if fire_state.get("video_terminated", False):
+            break
+            
+        success, frame = cap.read()
+        if not success:
+            break
+
+        if fire_model is not None:
+            # We lowered the threshold to 0.3 just to make sure the model is actually seeing things
+            results = fire_model(frame, conf=0.40, verbose=False) 
+            threat_detected = None
+
+            for r in results:
+                boxes = r.boxes
+                for box in boxes:
+                    x1, y1, x2, y2 = map(int, box.xyxy[0])
+                    cls = int(box.cls[0])
+                    conf = float(box.conf[0])
+                    
+                    # Instead of hardcoding 0 and 1, we pull the exact name from your model!
+                    class_name = fire_model.names[cls].upper()
+                    
+                    # Check if the model detected fire or a weapon/gun
+                    if "FIRE" in class_name or "WEAPON" in class_name or "GUN" in class_name:
+                        threat_detected = class_name
+                        color = (0, 0, 255) # Red
+                    else:
+                        # If it detects something else, draw it in Blue so you know the model is working
+                        threat_detected = class_name
+                        color = (255, 165, 0) # Orange
+                    
+                    # Draw the bounding box and label
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), color, 3)
+                    cv2.putText(frame, f"{class_name} {conf:.2f}", (x1, y1 - 10), 
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+                    
+                    # Print to your server console so you can debug!
+                    print(f"[FireModel Debug] Found {class_name} with {conf:.2f} confidence!")
+
+            current_time = time.time()
+            
+            # Send Email if a threat is found (respecting cooldown)
+            if threat_detected and ("FIRE" in threat_detected or "WEAPON" in threat_detected or "GUN" in threat_detected):
+                if (current_time - fire_state.get("last_alert_time", 0) > ALERT_COOLDOWN):
+                    fire_state["last_alert_time"] = current_time
+                    email = "viveksapkale022@gmail.com"
+                    subject = f"URGENT: {threat_detected} Detected!"
+                    body = f"A {threat_detected} was just detected on your camera feed. Please check immediately."
+                    
+                    print(f"[FireModel] Triggering email alert for {threat_detected}!")
+                    threading.Thread(target=send_alert_email, args=(email, frame), 
+                                     kwargs={"subject": subject, "body": body}).start()
+
+                cv2.putText(frame, "THREAT DETECTED - ALERT SENT", (20, 50), 
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 3)
+
+        ret, buffer = cv2.imencode('.jpg', frame)
+        if not ret:
+            continue
+            
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
+        time.sleep(0.01)
+
+    cap.release()
 
 def track_person(state, bbox):
     for pid, prev_bbox in state['person_tracks'].items():

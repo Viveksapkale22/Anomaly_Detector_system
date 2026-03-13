@@ -219,10 +219,7 @@
 
       <div class="button-col">
         <button id="select-detection-btn" type="button">Detection Setting</button>
-        <!-- <button id="toggle-counting-btn" onclick="document.forms['toggleCountingForm'].submit();"> -->
-          <button id="toggleButton" onclick="toggleCounting()">Enable Counting</button>
-
-        </button>
+        <button id="toggleButton" onclick="toggleCounting()">Enable Counting</button>
         <form name="toggleCountingForm" action="{{ url_for('toggle_counting') }}" method="POST" style="display:none;"></form>
       </div>
     </div>
@@ -270,6 +267,7 @@
       })
       .catch(error => console.error("Error:", error));
   }
+
   </script>
   
   <script>

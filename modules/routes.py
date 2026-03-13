@@ -7,7 +7,7 @@ import cv2
 from modules.utils import allowed_file, play_alert, boxes_intersect, detect_motion, save_frame_and_get_path
 from modules.auth import login_user, register_user, forget_password, logout_user
 from modules.face_analysis import analyze_gender
-from modules.detection import generate_frames
+from modules.detection import generate_frames, generate_fire_frames
 import os
 from werkzeug.utils import secure_filename
 
@@ -188,3 +188,71 @@ def register_routes(app, model, tracker, users_collection, bcrypt, user_data_sto
         # Placeholder logic: return fake alert status
         return jsonify({"alert": False, "message": "No alerts triggered"})
 
+    # ---------------------------------------------------------
+    # FIRE & WEAPON ROUTES
+    # ---------------------------------------------------------
+    fire_state = {
+        "feed_source": 0,
+        "video_terminated": False,
+        "last_alert_time": 0
+    }
+
+    @app.route('/fire_video_feed')
+    def fire_video_feed():
+        fire_state["video_terminated"] = False
+        # If the user uploaded a video, check app.config, otherwise use feed_source
+        source = app.config.get('CURRENT_FIRE_VIDEO', fire_state["feed_source"])
+        return Response(generate_fire_frames(source, fire_state), 
+                        mimetype='multipart/x-mixed-replace; boundary=frame')
+
+    @app.route('/fire_camera_feed')
+    def fire_camera_feed():
+        fire_state["feed_source"] = 0
+        app.config.pop('CURRENT_FIRE_VIDEO', None) # Clear any uploaded video
+        return redirect(url_for('fire_video_feed'))
+
+    @app.route('/fire_cctv_feed')
+    def fire_cctv_feed():
+        fire_state["feed_source"] = "rtsp://your_camera_ip/stream"
+        app.config.pop('CURRENT_FIRE_VIDEO', None) 
+        return redirect(url_for('fire_video_feed'))
+
+    @app.route('/fire_terminate', methods=['POST'])
+    def fire_terminate():
+        fire_state["video_terminated"] = True
+        return "OK", 200
+
+    @app.route('/fire_upload', methods=['GET', 'POST'])
+    def fire_upload():
+        if 'username' not in session:
+            flash('You must log in to upload videos.', 'warning')
+            return redirect(url_for('index'))
+
+        if request.method == 'POST':
+            if 'file' not in request.files:
+                flash('No file part.', 'danger')
+                return redirect(request.url)
+
+            file = request.files['file']
+            if file.filename == '':
+                flash('No selected file.', 'danger')
+                return redirect(request.url)
+
+            if file and allowed_file(file.filename):
+                # Save it with a unique name so it doesn't overwrite your face tracking video
+                filename = secure_filename('fire_uploaded_video.mp4')
+                upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
+                os.makedirs(upload_folder, exist_ok=True)
+
+                filepath = os.path.join(upload_folder, filename)
+                file.save(filepath)
+
+                # Set the video specifically for the fire system
+                app.config['CURRENT_FIRE_VIDEO'] = filepath
+                fire_state["video_terminated"] = False
+                
+                flash('Fire/Weapon Video uploaded successfully!', 'success')
+                return redirect(url_for('normal_detection')) # Redirects to the Fire Dashboard
+
+        # Renders a unique HTML template
+        return render_template('fire_upload.html')

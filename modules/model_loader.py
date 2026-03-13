@@ -13,8 +13,6 @@ from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 
 
-from ultralytics import YOLO
-
 def load_yolo_model(model_path='best.pt'):
     model = YOLO(model_path)
     original_call = model.__call__
