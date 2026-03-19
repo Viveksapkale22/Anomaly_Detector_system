@@ -535,6 +535,7 @@
   </div>
 </div>
 
+ <div id="contact">
 
 <!-- Footer Information -->
 <section id="footer" class="py-5 mt-5 " style="background: radial-gradient(circle at 10% 20%, rgba(0, 100, 255, 0.025) 0%, transparent 30%), radial-gradient(circle at 90% 80%, rgba(0, 200, 255, 0.025) 0%, transparent 30%),  linear-gradient(135deg, #f5f9ff 0%, #ffffff 100%);">
@@ -549,7 +550,7 @@
                     <div class="p-4 rounded-3 h-100" 
                          style="background-color: rgba(var(--bs-gray-800-rgb), 0.9); 
                                 border: 1px solid rgba(255,255,255,0.1);">
-                        <h3 class="text-primary mb-4"><i class="fa fa-shield me-2"></i>Sentinel AI Enterprise Suite</h3>
+                        <h3 class="text-primary mb-4"><i class="fa fa-shield me-2"></i>AlertVision</h3>
 
                         
                         <strong style="font-size: 1.5rem;">Development Team:</strong>
@@ -572,9 +573,7 @@
                             </div>
                         <br>
                         <p class="text-white-80 lead" style="font-size: 1.2rem;">
-                            Leveraging cutting-edge AI surveillance technology with 99.9% detection accuracy. 
-                            Our platform integrates seamlessly with existing security infrastructure while 
-                            providing real-time analytics and cross-platform compatibility.
+                            “AlertVision AI delivers real-time intelligent surveillance using advanced computer vision and deep learning. The system detects, tracks, and analyzes human activity with high accuracy, ensuring enhanced security and rapid response.”
                         </p>
                         <div class="mt-4 text-center">
                             <i class="fa fa-certificate text-warning me-2"></i>
@@ -582,6 +581,8 @@
                         </div>
                     </div>
                 </div>
+
+               
 
                 <!-- Contact Info -->
                 <div class="col-md-6">
@@ -596,11 +597,11 @@
                             </li>
                             <li class="mb-3">
                                 <i class="fa fa-envelope text-info me-2"></i>
-                                <strong>Email:</strong> support@alertvision.com
+                                <strong>Email:</strong> support@AlertVisoion.ai
                             </li>
                             <li class="mb-4">
                                 <i class="fa fa-phone text-success me-2"></i>
-                                <strong>Emergency:</strong> +1 (800) 555-SAFE
+                                <strong>Emergency:</strong> +91 9876543210
                             </li>
                         </ul>
                         
@@ -648,7 +649,7 @@
 </div>
 </footer>
 
-  
+  </div>
 
 
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.8/dist/umd/popper.min.js" integrity="sha384-I7E8VVD/ismYTF4hNIPjVp/Zjvgyol6VFvRkX/vR+Vc4jQkC+hVqc2pM8ODewa9r" crossorigin="anonymous"></script>
@@ -658,16 +659,18 @@ document.addEventListener("DOMContentLoaded", function () {
   const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
   const loginButton = document.querySelector(".btn-outline-secondary");
   
+  // Make the login button trigger the modal manually
   loginButton.addEventListener("click", function () {
       loginModal.show();
   });
   
-  // Show modal after 2 seconds when the page loads
+  // Jinja condition: Only auto-show the modal if the user is NOT in the session
+  {% if 'username' not in session %}
   setTimeout(() => {
       loginModal.show();
-  }, 5000);
+  }, 2000); // 2000ms = 2 seconds
+  {% endif %}
 });
-</script>
-</body>
+</script></body>
 </html>
 
