@@ -1,36 +1,30 @@
 # File: modules/routes.py
 
 from flask import render_template, request, redirect, url_for, session, flash, jsonify, Response
-import threading
-import time
-import cv2
-from modules.utils import allowed_file, play_alert, boxes_intersect, detect_motion, save_frame_and_get_path
-from modules.auth import login_user, register_user, forget_password, logout_user
-from modules.face_analysis import analyze_gender
-from modules.detection import generate_frames, generate_fire_frames
 import os
 from werkzeug.utils import secure_filename
+import datetime
 
-bg_subtractor = cv2.createBackgroundSubtractorMOG2(detectShadows=True)
+# Import your custom auth functions
+from modules.auth import login_user, register_user, forget_password, logout_user
+# Import your new detection logic
+from modules.detection import generate_security_frames
 
-def register_routes(app, model, tracker, users_collection, bcrypt, user_data_store):
-    """Registers all app routes."""
+# This stores what the user currently wants to detect
+USER_DETECTION_STATE = {
+    "FIRE": True,
+    "WEAPON": True,
+    "PERSON": True,
+    "video_terminated": False,
+    "feed_source": 0 # Default webcam
+}
 
-    global_state = {
-        "restricted_area": None,
-        "counting_enabled": False,
-        "stop_video_flag": threading.Event(),
-        "selected_gender": "both",
-        "gender_labels": {},
-        "processing": {},
-        "last_gender_time": {},
-        "last_alert_time": {},
-        "person_tracks": {},
-        "person_counter": 0,
-        "detected_persons": [],
-        "email": "viveksapkale022@gmail.com"
-    }
+def register_routes(app, db, users_collection, bcrypt):
+    alerts_collection = db["alerts"] 
 
+    # ==========================================
+    # --- AUTHENTICATION ROUTES ---
+    # ==========================================
 
     @app.route('/login', methods=['POST'])
     def login():
@@ -38,7 +32,7 @@ def register_routes(app, model, tracker, users_collection, bcrypt, user_data_sto
 
     @app.route('/register', methods=['POST'])
     def register():
-        return register_user( users_collection, bcrypt)
+        return register_user(users_collection, bcrypt)
 
     @app.route('/logout', methods=['POST'])
     def logout():
@@ -48,80 +42,23 @@ def register_routes(app, model, tracker, users_collection, bcrypt, user_data_sto
     def forget_password_route():
         return forget_password(users_collection)
 
-    @app.route('/main')
-    def main():
+    # ==========================================
+    # --- DASHBOARD & PAGE ROUTES ---
+    # ==========================================
+
+    @app.route('/dashboard')
+    def dashboard():
         if 'username' not in session:
-            flash('You need to log in first!')
             return redirect(url_for('index'))
+        # Going to front.html per your request
         return render_template('front.html', username=session['username'])
-
-    # @app.route('/upload', methods=['GET', 'POST'])
-    # def upload():
-    #     if request.method == 'POST':
-    #         if 'file' not in request.files:
-    #             flash('No file part')
-    #             return redirect(request.url)
-    #         file = request.files['file']
-    #         if file.filename == '':
-    #             flash('No selected file')
-    #             return redirect(request.url)
-    #         if file and allowed_file(file.filename):
-    #             filename = 'uploaded_video.mp4'
-    #             file_path = f"uploads/{filename}"
-    #             file.save(file_path)
-    #             app.config['CURRENT_VIDEO'] = file_path
-    #             global_state['restricted_area'] = None
-    #             flash('Video uploaded successfully!')
-    #             return redirect(url_for('auth_area_detection'))
-    #     return render_template('upload.html')
-
-
-    ALLOWED_EXTENSIONS = {'mp4'}
- 
-    def allowed_file(filename):
-        return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
-
-    @app.route('/upload', methods=['GET', 'POST'])
-    def upload():
-        if 'username' not in session:
-            flash('You must log in to upload videos.', 'warning')
-            return redirect(url_for('index'))
-
-        if request.method == 'POST':
-            if 'file' not in request.files:
-                flash('No file part.', 'danger')
-                return redirect(request.url)
-
-            file = request.files['file']
-            if file.filename == '':
-                flash('No selected file.', 'danger')
-                return redirect(request.url)
-
-            if file and allowed_file(file.filename):
-                filename = secure_filename('uploaded_video.mp4')  # overwrite each time
-                upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
-                os.makedirs(upload_folder, exist_ok=True)
-
-                file_path = os.path.join(upload_folder, filename)
-                file.save(file_path)
-
-                app.config['CURRENT_VIDEO'] = file_path
-                global_state['restricted_area'] = None
-                global_state['stop_video_flag'].set()  # optional: stop running stream
-                flash('Video uploaded successfully!', 'success')
-
-                return redirect(url_for('auth_area_detection'))
-
-        return render_template('upload.html')
-
-
-
+        
     @app.route('/auth_area_detection')
     def auth_area_detection():
         if 'username' not in session:
             flash('You need to log in first!', 'danger')
             return redirect(url_for('index'))
-        return render_template('auth_area_detection.html', username=session['username'])
+        return render_template('normal_detection.html', username=session['username'])
     
     @app.route('/normal_detection')
     def normal_detection():
@@ -129,130 +66,106 @@ def register_routes(app, model, tracker, users_collection, bcrypt, user_data_sto
             flash('You need to log in first!', 'danger')
             return redirect(url_for('index'))
         return render_template('normal_detection.html', username=session['username'])
- 
 
-    @app.route('/set_restricted_area', methods=['POST'])
-    def set_restricted_area():
-        x = int(request.form.get("x", 0))
-        y = int(request.form.get("y", 0))
-        w = int(request.form.get("w", 0))
-        h = int(request.form.get("h", 0))
-        global_state['restricted_area'] = (x, y, x + w, y + h)
-        return '', 204
-
-    @app.route('/update_gender', methods=['GET'])
-    def update_gender():
-        gender = request.args.get("gender", "both")
-        global_state['selected_gender'] = gender
-        return jsonify({"status": "updated", "selected_gender": gender})
-
-    @app.route('/clear_detection_settings', methods=['POST'])
-    def clear_detection_settings():
-        global_state['restricted_area'] = None
-        return "OK", 200
-
-    @app.route('/toggle_counting', methods=['POST'])
-    def toggle_counting():
-        global_state['counting_enabled'] = not global_state['counting_enabled']
-        return {"counting_enabled": global_state['counting_enabled']}
+    # ==========================================
+    # --- VIDEO FEED & CONTROLS ---
+    # ==========================================
 
     @app.route('/video_feed')
     def video_feed():
-        global_state['stop_video_flag'].clear()
+        USER_DETECTION_STATE["video_terminated"] = False
+        USER_DETECTION_STATE["username"] = session.get('username', 'Guest')
+        USER_DETECTION_STATE["email"] = session.get('email', 'viveksapkale022@gmail.com') # Assuming you store email in session!
+        
         video_path = app.config.get('CURRENT_VIDEO', 'demo_browser/demo1.mp4')
-        return Response(generate_frames(video_path, model, tracker, global_state),
+        return Response(generate_security_frames(video_path, USER_DETECTION_STATE, alerts_collection),
                         mimetype='multipart/x-mixed-replace; boundary=frame')
 
     @app.route('/camera_feed')
     def camera_feed():
-        global_state['stop_video_flag'].clear()
-        flash('camera_feed', 'success')
-        return Response(generate_frames(0, model, tracker, global_state),
+        USER_DETECTION_STATE["video_terminated"] = False
+        USER_DETECTION_STATE["username"] = session.get('username', 'Guest')
+        USER_DETECTION_STATE["email"] = session.get('email', 'viveksapkale022@gmail.com')
+        flash('camera_feed started', 'success')
+        return Response(generate_security_frames(0, USER_DETECTION_STATE),
                         mimetype='multipart/x-mixed-replace; boundary=frame')
 
     @app.route('/cctv_feed')
     def cctv_feed():
-        global_state['stop_video_flag'].clear()
-        return Response(generate_frames(1, model, tracker, global_state),
+        USER_DETECTION_STATE["video_terminated"] = False
+        USER_DETECTION_STATE["username"] = session.get('username', 'Guest')
+        USER_DETECTION_STATE["email"] = session.get('email', 'viveksapkale022@gmail.com')
+        return Response(generate_security_frames(1, USER_DETECTION_STATE),
                         mimetype='multipart/x-mixed-replace; boundary=frame')
 
+    @app.route('/terminate', methods=['POST'])
+    def terminate():
+        USER_DETECTION_STATE["video_terminated"] = True
+        return jsonify({"status": "terminated"})
 
-    @app.route('/terminate_video_feed', methods=['POST'])
-    def terminate_video_feed():
-        global_state['stop_video_flag'].set()
+    # ==========================================
+    # --- MODEL TOGGLES & ALERTS ---
+    # ==========================================
 
-        return redirect(url_for('auth_area_detection'))
-    
-    @app.route('/alert_status')
-    def alert_status():
-        # Placeholder logic: return fake alert status
-        return jsonify({"alert": False, "message": "No alerts triggered"})
+    @app.route('/toggle_model', methods=['POST'])
+    def toggle_model():
+        data = request.json
+        model_name = data.get("model") # "FIRE", "WEAPON", or "PERSON"
+        state = data.get("state")      # True or False
+        
+        if model_name in USER_DETECTION_STATE:
+            USER_DETECTION_STATE[model_name] = state
+            
+        return jsonify({"status": "updated", "state": USER_DETECTION_STATE})
 
-    # ---------------------------------------------------------
-    # FIRE & WEAPON ROUTES
-    # ---------------------------------------------------------
-    fire_state = {
-        "feed_source": 0,
-        "video_terminated": False,
-        "last_alert_time": 0
-    }
-
-    @app.route('/fire_video_feed')
-    def fire_video_feed():
-        fire_state["video_terminated"] = False
-        # If the user uploaded a video, check app.config, otherwise use feed_source
-        source = app.config.get('CURRENT_FIRE_VIDEO', fire_state["feed_source"])
-        return Response(generate_fire_frames(source, fire_state), 
-                        mimetype='multipart/x-mixed-replace; boundary=frame')
-
-    @app.route('/fire_camera_feed')
-    def fire_camera_feed():
-        fire_state["feed_source"] = 0
-        app.config.pop('CURRENT_FIRE_VIDEO', None) # Clear any uploaded video
-        return redirect(url_for('fire_video_feed'))
-
-    @app.route('/fire_cctv_feed')
-    def fire_cctv_feed():
-        fire_state["feed_source"] = "rtsp://your_camera_ip/stream"
-        app.config.pop('CURRENT_FIRE_VIDEO', None) 
-        return redirect(url_for('fire_video_feed'))
-
-    @app.route('/fire_terminate', methods=['POST'])
-    def fire_terminate():
-        fire_state["video_terminated"] = True
-        return "OK", 200
-
-    @app.route('/fire_upload', methods=['GET', 'POST'])
-    def fire_upload():
+    @app.route('/get_alerts', methods=['GET'])
+    def get_alerts():
         if 'username' not in session:
-            flash('You must log in to upload videos.', 'warning')
+            return jsonify({"error": "Unauthorized"}), 401
+            
+        # Fetch only alerts belonging to the logged-in user
+        user_alerts = list(alerts_collection.find(
+            {"username": session['username']}, 
+            {"_id": 0} 
+        ).sort("timestamp", -1).limit(20))
+        
+        return jsonify(user_alerts)
+
+
+
+
+    # ==========================================
+    # --- VIDEO UPLOAD ROUTE ---
+    # ==========================================
+    @app.route('/upload_video', methods=['GET', 'POST'])
+    def upload_video():
+        if 'username' not in session:
+            flash('You need to log in first!', 'danger')
             return redirect(url_for('index'))
 
         if request.method == 'POST':
             if 'file' not in request.files:
-                flash('No file part.', 'danger')
+                flash('No file selected!', 'warning')
                 return redirect(request.url)
-
+            
             file = request.files['file']
             if file.filename == '':
-                flash('No selected file.', 'danger')
+                flash('No selected file!', 'warning')
                 return redirect(request.url)
-
-            if file and allowed_file(file.filename):
-                # Save it with a unique name so it doesn't overwrite your face tracking video
-                filename = secure_filename('fire_uploaded_video.mp4')
-                upload_folder = app.config.get('UPLOAD_FOLDER', 'uploads')
-                os.makedirs(upload_folder, exist_ok=True)
-
-                filepath = os.path.join(upload_folder, filename)
-                file.save(filepath)
-
-                # Set the video specifically for the fire system
-                app.config['CURRENT_FIRE_VIDEO'] = filepath
-                fire_state["video_terminated"] = False
                 
-                flash('Fire/Weapon Video uploaded successfully!', 'success')
-                return redirect(url_for('normal_detection')) # Redirects to the Fire Dashboard
-
-        # Renders a unique HTML template
+            if file:
+                filename = secure_filename(file.filename)
+                # Save it to the 'uploads' folder we created in app.py
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                
+                # Tell the app to use this new video!
+                app.config['CURRENT_VIDEO'] = filepath
+                USER_DETECTION_STATE["video_terminated"] = False
+                
+                flash('Video uploaded successfully! Analyzing now...', 'success')
+                # Send them back to the dashboard to see the results
+                return redirect(url_for('normal_detection')) 
+                
+        # If it's a GET request, just show the upload page
         return render_template('fire_upload.html')
