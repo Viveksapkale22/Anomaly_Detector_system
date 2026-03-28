@@ -67,12 +67,13 @@ def forget_password(users_collection):
 
 
 def send_reset_email(email, token):
-    reset_link = f"https://change-password-0cym.onrender.com/reset-password?token={token}"
+    reset_link = f"https://change-password-1-f3h1.onrender.com/reset-password?token={token}"
+
     subject = "Password Reset Request"
     message = f"Subject: {subject}\n\nClick the link to reset your password: {reset_link} (Valid for 15 mins)"
 
     try:
-        with smtplib.SMTP("smtp.gmail.com", 587) as server:
+        with smtplib.SMTP("smtp.gmail.com", 465) as server:
             server.starttls()
             server.login(SENDER_EMAIL, SENDER_PASSWORD)
             server.sendmail(SENDER_EMAIL, email, message)
