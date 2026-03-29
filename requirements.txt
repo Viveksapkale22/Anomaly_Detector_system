@@ -7,3 +7,4 @@ torch
 torchvision
 ultralytics
 Flask-Bcrypt
+pymongo
